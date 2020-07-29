@@ -1,0 +1,23 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/01/And.hdl
+
+/**
+ * And gate: 
+ * out = 1 if (a == 1 and b == 1)
+ *       0 otherwise
+ */
+
+CHIP And {
+    IN a, b;
+    OUT out;
+
+    PARTS:
+    // out skal udelukkende være 1, hvis både a og b er lig med 1
+    // hvis a og b er lig med 1, så er c=0, ellers 1
+    // og hvis c og c er lig med 1, så er out=0, ellers 1
+
+    Nand(a=a, b=b, out=c);
+    Not(in=c, out=out);
+}
