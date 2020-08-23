@@ -2,29 +2,22 @@ import gates
 
 # sum: a + !ac)b + !ab)c
 
-simpleMode = 0
-once = 1
+simpleMode = 1
+once = 0
 
 a = 0
 b = 0
-c = 1
+c = 0
 
+d = [1, 2, 3, 4]
 
-
+d[-1]
 
 def calc(a, b, c, simple=False):
 	out = 0
-	
+	out = gates.Nand(b, c)
 
-	car_bc, sum_bc = gates.HalfAdder(b, c)
-	car_l = gates.And(a, car_bc)
-	car_r, sum_r = gates.HalfAdder(car_l, sum_bc)
-
-	print(car_bc, sum_bc)
-	print(car_r, sum_r)
-
-
-	
+	print(b, c, '>', out)
 
 
 def count(simple=False):
@@ -44,6 +37,7 @@ def count(simple=False):
 
 	if a > 1:
 		return True
+
 
 while True:
 	calc(a, b, c, simpleMode)
