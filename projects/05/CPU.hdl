@@ -39,35 +39,25 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
-    // 1. Execute hack instruction
-    //  a) Fetch from program memory Put location of instruction in memory addres
-    //     -) instruction = Memory( location of instruction )
-    //  b) Execute instruction
-    // 2. What instruction to execute next?
+    /* 
+    1. Execute hack instruction
+     a) Fetch from program memory Put location of instruction in memory addres
+        -) instruction = Memory( location of instruction )
+     b) Execute instruction
+    2. What instruction to execute next?
 
-    // Memory(in=loc_ins, load=true, address=, out=);
+    Memory(in=loc_ins, load=true, address=, out=);
 
-    // # 0 12 3 456789 10-12 13-15
-    // # 1 11 a cccccc d d d j j j
+    # 0 12 3 456789 10-12 13-15
+    # i xx a cccccc d d d j j j
 
-    // 0: opcode... 0 = A instruks, 1 = C instruks
+    i: opcode... 0 = A instruks, 1 = C instruks
+    x: bliver ikke brugt i tilfælde af en C instruks - kan ignoreres
+    a vælger om ALU'en bruger A registreret som input eller M som input
+    c: ALU input
+    d: a register, d register og writeM
+    j: jump control bits
 
-    // a 
-    // c: ALU
-    // d: a register, d register og writeM
-    // j: jump control bits
-
-    /*
-
-    A)
-
-    @1
-
-    C)
-    D=M + M
-    D=M - M
-    M=
-    A=
 
     Notation:
     sil__: should i load __
@@ -75,35 +65,33 @@ CHIP CPU {
 
     */
 
-    Mux16(a=, b=, sel=, out=);
+    // kan ikke finde ud af hvor vigtig den her er :/
+    // Mux16(a=, b=, sel=, out=);
+
+    // --
+    Mux16(a=aluOUT, b=instruction, sel=instruction[0], out=aregIN);
+    ARegister(in=aregIN, load=instruction[10], out=aRegisterOUT, out[0..14]=addressM);
+
+    
+    DRegister(in=aluOUT, load=instruction[11], out=dRegisterOUT);
 
 
-    ARegister(in=instruction, load=instruction[0], out=aRegisterOUT, out[0..14]=addressM);
+    Mux16(a=aRegisterOUT, b=inM, sel=instruction[3], out=aregORm);
+    ALU(x=dRegisterOUT, y=aregORm, zx=instruction[4], nx=instruction[5], zy=instruction[6], ny=instruction[7], f=instruction[8], no=instruction[9], out=aluOUT, out=outM, zr=aluOUTzr, ng=aluOUTng);
 
-    Memory(in=, load=, address=, out=);
+    // indtil videre tror jeg det er rigtigt.
 
-    // C instrukser
-
-    // write to the A register
-    ARegister(in=wareg, load=silareg, out=);
-
-    // write to the D register
-
-    // write to memory
+    Not(in=instruction[0], out=in0);
+    And(a=instruction[12], b=in0, out=writeM);
 
 
+    And(a=instruction[13], b=instruction[14], out=jj0);
+    And(a=jj0, b=instruction[15], out=unconJUMP);
+    Not(in=unconJUMP, out=increment); // hvis increment er sand, så skal der bare incrementes :)
 
+    Or(a=instruction[13], b=instruction[14], out=jjjOR0);
+    Or(a=jjjOR0, b=instruction[15], out=JUMP);
 
-    // Mux16(a=aRegisterOUT, b=inM, sel=instruction[2], out=aluIN2mux);
-    // DRegister(in=aluOUT, load=instruction[D_1], out=aluIN1dReg);
-
-    // ALU(x=aluIN1dReg, y=aluIN2mux, zx=instruction[4], nx=instruction[5], zy=instruction[6], ny=instruction[7], f=instruction[8], no=instruction[9], out=aluOUT, out=outM, zr=aluOUTzr, ng=aluOUTng);
-
-    // And(a=instruction[D_2], b=instruction[D_2], out=writeM);
-
-
-    // PC(in=aRegisterOUT, load=instruction[1], inc=instruction[2], reset=reset, out[0..14]=pc);
-
-
+    PC(in=aRegisterOUT, load=JUMP, inc=increment, reset=reset, out[0..14]=pc);
 
 }
