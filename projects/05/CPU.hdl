@@ -68,19 +68,21 @@ CHIP CPU {
     // kan ikke finde ud af hvor vigtig den her er :/
     // Mux16(a=, b=, sel=, out=);
 
-    Not16(in=false, out=negated);
 
     // p1
     Not(in=instruction[15],out=aInstruction);
     Mux16(a=aluOUT, b[15]=false, b[0..14]=instruction[0..14], sel=aInstruction, out=aRegIN);
 
+    And(a=instruction[12], b=instruction[15], out=aAndc);
     
-    ARegister(in=aRegIN, load=instruction[12], out=aRegisterOUT); //! originalt på 12
+
+    ARegister(in=aRegIN, load=true, out=oldAReg);
+    //ARegister(in=aRegIN, load=oldI5, out=aRegisterOUT); //! originalt på 12
 
     // Load d reg
     And(a=instruction[15], b=instruction[4], out=loadDreg);
     DRegister(in=aluOUT, load=loadDreg, out=dRegisterOUT);
-    Mux16(a=aRegisterOUT, b=inM, sel=instruction[12], out=P1orInM);
+    Mux16(a=oldAReg, b=inM, sel=aAndc, out=P1orInM);
     
     ALU(x=dRegisterOUT, y=P1orInM, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=aluOUT, zr=aluOUTzr, ng=aluOUTng);
     // ALU(x=dRegisterOUT, y=P1orInM, zx=instruction[6], nx=instruction[7], zy=instruction[8], ny=instruction[9], f=instruction[10], no=instruction[11], out=aluOUT, zr=aluOUTzr, ng=aluOUTng);
@@ -107,8 +109,7 @@ CHIP CPU {
 
 
     // writeM, m kan vel kun skrives til, hvis det er en c instruks...
-    Not(in=aInstruction, out=cInstruction);
-    And(a=loadM, b=cInstruction, out=writeM);
+    And(a=instruction[3], b=instruction[15], out=writeM);
     // --
 
     // PC & Jump
@@ -127,7 +128,7 @@ CHIP CPU {
     Or(a=JEQ, b=JGT, out=JGE);
 
     // JLT out < 0
-    Not(in=JGT, out=JLT);
+    And(a=aluOUTng, b=aluOUTng, out=JLT);
 
     
     // JLE out <= 0
