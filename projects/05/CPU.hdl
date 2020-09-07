@@ -46,89 +46,45 @@ CHIP CPU {
      b) Execute instruction
     2. What instruction to execute next?
 
-    Memory(in=loc_ins, load=true, address=, out=);
 
     # 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0
     #  i  x  x  a  c  c c c c c d d d j j j
-       1  1  1  0  0  0 1 1 0 0 0 0 0 1 0 0
-
-        7+ 1110001110011000 MD=D-1
-       11+ 0000000000001110 @14 0 -1 0 1000 11      lige meget - 0 - 14 - 11  -1
-       12  1110001100000100 D;JLT                   lige meget - 0 - 14 - 14  -1
-
-    i: opcode... 0 = A instruks, 1 = C instruks
-    x: bliver ikke brugt i tilfælde af en C instruks - kan ignoreres
-    a vælger om ALU'en bruger A registreret som input eller M som input
-    c: ALU input
-    d: a register, d register og writeM
-    j: jump control bits
-
+    
     */
 
-    // kan ikke finde ud af hvor vigtig den her er :/
-    // Mux16(a=, b=, sel=, out=);
+    Not(in=instruction[15], out=aInstruct);
+    Not(in=aInstruct, out=cInstruct);
 
-
-    // p1
-    Not(in=instruction[15],out=aInstruction);
-    Mux16(a=aluOUT, b[15]=false, b[0..14]=instruction[0..14], sel=aInstruction, out=aRegIN);
-
-    And(a=instruction[12], b=instruction[15], out=aAndc);
+    Mux16(a=false, b=instruction, sel=cInstruct, out[3]=writeM);
     
+    Mux16(a=aluOut, b=instruction, sel=aInstruct, out=inA);
 
-    ARegister(in=aRegIN, load=true, out=oldAReg);
-    //ARegister(in=aRegIN, load=oldI5, out=aRegisterOUT); //! originalt på 12
+    Or(a=aInstruct, b=instruction[5], out=loadA);
+    ARegister(in=inA, load=loadA, out=aOut, out[0..14]=addressM);
 
-    // Load d reg
-    And(a=instruction[15], b=instruction[4], out=loadDreg);
-    DRegister(in=aluOUT, load=loadDreg, out=dRegisterOUT);
-    Mux16(a=oldAReg, b=inM, sel=aAndc, out=P1orInM);
+    And(a=cInstruct, b=instruction[4], out=loadD);
+    DRegister(in=aluOut, load=loadD, out=dOut);
     
-    ALU(x=dRegisterOUT, y=P1orInM, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=aluOUT, zr=aluOUTzr, ng=aluOUTng);
-    // ALU(x=dRegisterOUT, y=P1orInM, zx=instruction[6], nx=instruction[7], zy=instruction[8], ny=instruction[9], f=instruction[10], no=instruction[11], out=aluOUT, zr=aluOUTzr, ng=aluOUTng);
+    And(a=cInstruct, b=instruction[12], out=useA);
+    Mux16(a=aOut, b=inM, sel=useA, out=aOrInM);
 
+    ALU(x=dOut, y=aOrInM, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=aluOut, out=outM, zr=zr, ng=ng);
+    //
 
-    // -------------------------------------------
-    // Destination ... det skal være en c instruks
-
-
-    // hvis d1 er sand, skal a registret gemme.
-    And(a=instruction[5], b=true, out=loadA);
-    Or(a=loadA, b=aInstruction, out=loadA2);
-    Mux16(a=aluOUT, b=instruction, sel=aInstruction, out=loadLocation);
-    // // hvis d2 er sand, er det D registrets tur til at gemme.
-    And(a=instruction[4], b=true, out=loadD);
-    // // ditto
-    And(a=instruction[3], b=true, out=loadM);
-    
-
-    ARegister(in=loadLocation, load=loadA2, out[0..14]=addressM, out[0..14]=addressToM);
-    DRegister(in=aluOUT, load=loadD);
-    Memory(in=aluOUT, load=loadM, address=addressToM);
-    Mux16(a[15]=false, a[0..14]=false, b=aluOUT, sel=loadM, out=outM);
-
-
-    // writeM, m kan vel kun skrives til, hvis det er en c instruks...
-    And(a=instruction[3], b=instruction[15], out=writeM);
-    // --
-
-    // PC & Jump
-
-    // JNE out != 0 ... tager den her først, da den er vigtig.
-    Not(in=aluOUTzr, out=JNE);
+    Not(in=zr, out=JNE);
 
     // JGT if out > 0 JUMP
-    Not(in=aluOUTng, out=possiblyOverZero);
+    Not(in=ng, out=possiblyOverZero);
     And(a=possiblyOverZero, b=JNE, out=JGT);
 
     // JEQ out == 0
-    And(a=aluOUTzr, b=aluOUTzr, out=JEQ);
+    And(a=zr, b=zr, out=JEQ);
 
     // JGE out >= 0
     Or(a=JEQ, b=JGT, out=JGE);
 
     // JLT out < 0
-    And(a=aluOUTng, b=aluOUTng, out=JLT);
+    And(a=ng, b=ng, out=JLT);
 
     
     // JLE out <= 0
@@ -149,42 +105,12 @@ CHIP CPU {
         out[0]=mayJump
     );
 
-    And(a=mayJump, b=instruction[15], out=JUMP);
+    And(a=mayJump, b=instruction[15], out=jump);
 
-    Not(in=JUMP, out=increment);
+    Not(in=jump, out=increment);
 
-    
-
-    PC(in[15]=false, in[0..14]=addressToM, load=JUMP, inc=increment, reset=reset, out[0..14]=pc);
-
-    // ALU:
-    // hvis out == 0, så er zr = 1
-    // hvis out < 0, så er ng = 1
+    PC(in=aOut, load=jump, inc=increment, reset=reset, out[0..14]=pc);
 
 
-    // Mux16(a=aluOUT, b=instruction, sel=instruction[0], out=aregIN);
-    // ARegister(in=aregIN, load=instruction[10], out=aRegisterOUT, out[0..14]=addressM);
-
-    // 
-    // DRegister(in=aluOUT, load=instruction[11], out=dRegisterOUT);
-
-
-    // Mux16(a=aRegisterOUT, b=inM, sel=instruction[3], out=aregORm);
-    // ALU(x=dRegisterOUT, y=aregORm, zx=instruction[4], nx=instruction[5], zy=instruction[6], ny=instruction[7], f=instruction[8], no=instruction[9], out=aluOUT, out=outM, zr=aluOUTzr, ng=aluOUTng);
-
-    // // indtil videre tror jeg det er rigtigt.
-
-    // Not(in=instruction[0], out=in0);
-    // And(a=instruction[12], b=in0, out=writeM);
-
-
-    // And(a=instruction[13], b=instruction[14], out=jj0);
-    // And(a=jj0, b=instruction[15], out=unconJUMP);
-    // Not(in=unconJUMP, out=increment); // hvis increment er sand, så skal der bare incrementes :)
-
-    // Or(a=instruction[13], b=instruction[14], out=jjjOR0);
-    // Or(a=jjjOR0, b=instruction[15], out=JUMP);
-
-    // PC(in=aRegisterOUT, load=JUMP, inc=increment, reset=reset, out[0..14]=pc);
 
 }
